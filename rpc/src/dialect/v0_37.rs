@@ -2,7 +2,7 @@ use tendermint::{abci, evidence};
 use tendermint_proto::v0_37 as raw;
 
 use crate::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Default, Clone)]
 pub struct Dialect;
@@ -42,11 +42,19 @@ pub struct EventAttribute {
     /// The event key.
     pub key: String,
     /// The event value.
+    #[serde(deserialize_with = "deserialize_null_string")]
     pub value: String,
     /// Whether Tendermint's indexer should index this event.
     ///
     /// **This field is nondeterministic**.
     pub index: bool,
+}
+
+pub fn deserialize_null_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 impl From<EventAttribute> for abci::EventAttribute {
@@ -91,4 +99,19 @@ impl From<evidence::Evidence> for Evidence {
     fn from(evidence: evidence::Evidence) -> Self {
         Self(evidence)
     }
+}
+
+#[test]
+fn test_null_str_deser() {
+    let e: EventAttribute =
+        serde_json::from_str(r#"{"key":"key","value":null,"index":false}"#).unwrap();
+
+    assert_eq!(
+        e,
+        EventAttribute {
+            key: "key".to_string(),
+            value: "".to_string(),
+            index: false,
+        }
+    );
 }
