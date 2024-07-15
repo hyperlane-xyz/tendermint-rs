@@ -323,7 +323,7 @@ impl TryFrom<HttpClientUrl> for hyper::Uri {
 }
 
 mod sealed {
-    use std::io::Read;
+    use std::{io::Read, println};
 
     use http::header::AUTHORIZATION;
     use hyper::{
@@ -364,6 +364,7 @@ mod sealed {
             let request = self.build_request(request)?;
             let response = self.inner.request(request).await.map_err(Error::hyper)?;
             let response_body = response_to_string(response).await?;
+            println!("Incoming response: {}", response_body);
             tracing::debug!("Incoming response: {}", response_body);
             R::Response::from_string(&response_body).map(Into::into)
         }
@@ -482,13 +483,17 @@ mod sealed {
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
+    use std::println;
 
+    use alloc::borrow::ToOwned;
     use http::{header::AUTHORIZATION, Request, Uri};
     use hyper::Body;
 
     use super::sealed::HyperClient;
+    use crate::client::CompatMode;
     use crate::dialect::LatestDialect;
     use crate::endpoint::abci_info;
+    use crate::{Client, HttpClient};
 
     fn authorization(req: &Request<Body>) -> Option<&str> {
         req.headers()
@@ -505,6 +510,30 @@ mod tests {
             HyperClient::build_request::<_, LatestDialect>(&client, abci_info::Request).unwrap();
 
         assert_eq!(authorization(&req), None);
+    }
+
+    #[tokio::test]
+    async fn query_bad_rpc() {
+        let mut block_no: u32 = 12387002;
+        // Client
+        // 12312556
+        let client = HttpClient::builder(
+            // "https://rpc-magnetix.neutron-1.neutron.org"
+            // "https://rpc-kralum.neutron-1.neutron.org"
+            "https://rpc.cosmos.directory/neutron"
+                // "https://neutron-rpc.publicnode.com"
+                .to_owned()
+                .parse()
+                .unwrap(),
+        )
+        .compat_mode(CompatMode::latest())
+        .build()
+        .unwrap();
+
+        let block = <HttpClient as Client>::block(&client, block_no)
+            .await
+            .expect("block query failed");
+        println!("block: {:?}", block);
     }
 
     #[test]
