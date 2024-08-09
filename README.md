@@ -10,7 +10,7 @@
 [Tendermint] in Rust with [TLA+ specifications](/docs/spec).
 
 Tendermint is a high-performance blockchain consensus engine for Byzantine fault
-tolerant applications written in any programming language.
+tolerant applications written in any programming language. This crate provides core types for representing information about Tendermint blockchain networks, including chain information types, secret connections, and remote procedure calls (JSON-RPC).
 
 ## Tendermint Core Compatibility
 
